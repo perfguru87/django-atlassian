@@ -16,7 +16,7 @@ class SQLCompiler(compiler.SQLCompiler):
         # Skip the Count
         elif type(node) == Count:
             return '', [{'count_only': True}]
-        return super(SQLCompiler, self).compile(node, select_format)
+        return super(SQLCompiler, self).compile(node)
 
     def as_sql(self, with_limits=True, with_col_aliases=False):
         """

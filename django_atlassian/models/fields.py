@@ -14,7 +14,7 @@ class ArrayField(fields.Field):
             return None
         return [x.encode(connection.charset) for x in value]
 
-    def from_db_value(self, value, expression, connection, context):
+    def from_db_value(self, value, expression, connection, context=None):
         """Convert from the database format.
 
         This should be the inverse of self.get_prep_value()
