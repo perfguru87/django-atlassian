@@ -26,16 +26,22 @@ from django.db.backends.base.introspection import BaseDatabaseIntrospection, Fie
 FieldInfo = namedtuple('FieldInfo', FieldInfo._fields + ('field_name', 'field_id', 'array_type', 'editable', 'options'))
 logger = logging.getLogger('django_atlassian.backends.common')
 
+
 class AtlassianDatabaseIntrospection(BaseDatabaseIntrospection):
     pass
 
 
 class AtlassianDatabaseConnection(object):
-    def __init__(self, uri, user, password, sc):
+    session: None
+
+    def __init__(self, uri, user, password, sc, verify=True):
         self.uri = uri
         self.user = user
         self.password = password
         self.sc = sc
+        session = requests.session()
+        session.verify = verify
+        session.auth = (self.user, self.password)
 
     def rollback(self):
         return True
@@ -47,7 +53,7 @@ class AtlassianDatabaseConnection(object):
         uri = self.uri + part
         headers = {'Accept': 'application/json'}
         if self.user and self.password:
-            r = requests.get(uri, auth=(self.user, self.password), headers=headers)
+            r = self.session.get(uri, headers=headers)
         elif self.sc:
             token = self.sc.create_token('GET', uri)
             headers.update({'Authorization': 'JWT {}'.format(token)})
@@ -61,7 +67,7 @@ class AtlassianDatabaseConnection(object):
         uri = self.uri + part
         headers = {'Content-Type': 'application/json'}
         if self.user and self.password:
-            r = requests.put(uri, data=json_body, auth=(self.user, self.password), headers=headers)
+            r = self.session.put(uri, data=json_body, headers=headers)
         elif self.sc:
             token = self.sc.create_token('PUT', uri)
             headers.update({'Authorization': 'JWT {}'.format(token)})
@@ -78,9 +84,9 @@ class AtlassianDatabaseConnection(object):
             headers = header
         if self.user and self.password:
             if fil:
-                r = requests.post(uri, files=fil, auth=(self.user, self.password), headers=headers)
+                r = self.session.post(uri, files=fil, headers=headers)
             else:
-                r = requests.post(uri, data=json_body, auth=(self.user, self.password), headers=headers)
+                r = self.session.post(uri, data=json_body, headers=headers)
         elif self.sc:
             token = self.sc.create_token('POST', uri)
             headers.update({'Authorization': 'JWT {}'.format(token)})
@@ -95,7 +101,7 @@ class AtlassianDatabaseConnection(object):
     def delete_request(self, part):
         uri = self.uri + part
         if self.user and self.password:
-            r = requests.delete(uri, auth=(self.user, self.password))
+            r = self.session.delete(uri)
         elif self.sc:
             token = self.sc.create_token('DELETE', uri)
             r = requests.delete(uri, headers={'Authorization': 'JWT {}'.format(token)})
@@ -150,7 +156,7 @@ class AtlassianDatabaseFeatures(BaseDatabaseFeatures):
     supports_select_union = False
     supports_select_intersection = False
     supports_select_difference = False
-    
+
     def __init__(self, connection):
         self.connection = connection
 
@@ -226,7 +232,7 @@ class AtlassianDatabaseCursor(object):
         normal = re.sub(r'\W', '_', name).lower()
         normal = re.sub(r'_{2,}', '_', normal)
         if normal[0] == '_':
-            normal = normal[1:] 
+            normal = normal[1:]
         return normal
 
     def close(self):
@@ -318,15 +324,15 @@ class AtlassianDatabaseCursor(object):
         else:
             ret = content
         return ret
- 
+
     def get_fields(self, fields=None):
-        """ 
+        """
         Method to return the FieldInfo and the field API id's
         If use_id = False, then the returned field names are the ones
         used for the query clause. If it is True, the field names
         used on the expand/select are used. The fields parameter is
         used to filter the result
-        """ 
+        """
         ret = []
         if not self.raw_fields:
             self.raw_fields = self.get_raw_fields(fields)
@@ -342,7 +348,7 @@ class AtlassianDatabaseCursor(object):
                 if hasattr(self.db.introspection, 'columns_read_only'):
                     editable = f['name'] not in self.db.introspection.columns_read_only
                 choices = f.get('choices', None)
- 
+
                 ret.append(FieldInfo(f['clauseNames'][0], schema, None, None, None, None, True, None, self.__normalize_field_name(f['name']), f['id'], array_type, editable, choices))
         return ret
 
@@ -404,10 +410,10 @@ class AtlassianDatabaseWrapper(BaseDatabaseWrapper):
         """Compute appropriate parameters for establishing a new connection."""
         if not self.connection_class:
             raise NotImplementedError('missing connection class attribute')
-        
+
         return self.connection_class(self.settings_dict['NAME'],
                 self.settings_dict['USER'], self.settings_dict['PASSWORD'],
-                self.settings_dict['SECURITY'])
+                self.settings_dict['SECURITY'], verify=self.settings_dict.get('VERIFY'))
 
     def get_new_connection(self, conn_params):
         return conn_params
