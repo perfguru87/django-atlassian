@@ -65,7 +65,8 @@ class JiraManagerMixin(JIRA):
                         basic_auth=(
                             db_settings['USER'],
                             db_settings['PASSWORD']
-                        )
+                        ),
+                        verify=db_settings.get('VERIFY', True)
                 )
             elif db_settings.get('SECURITY'):
                 jwt = {
