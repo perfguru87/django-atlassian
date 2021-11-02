@@ -39,9 +39,9 @@ class AtlassianDatabaseConnection(object):
         self.user = user
         self.password = password
         self.sc = sc
-        session = requests.session()
-        session.verify = verify
-        session.auth = (self.user, self.password)
+        self.session = requests.session()
+        self.session.verify = verify
+        self.session.auth = (self.user, self.password)
 
     def rollback(self):
         return True
