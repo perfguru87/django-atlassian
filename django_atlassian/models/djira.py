@@ -7,9 +7,15 @@ import importlib
 import json
 import requests
 import re
-import collections
 import os
 import copy
+
+try:
+    # Python 3.3 and above
+    from collections.abc import MutableSequence
+except ImportError:
+    # Python 3.2 and below
+    from collections import MutableSequence
 
 from django.db import models, router, connections
 from django.conf import settings
@@ -94,7 +100,7 @@ class JiraManager(EmptyManager, JiraManagerMixin):
         super(JiraManager, self).__setattr__(attrname, val)
 
 
-class IssueLinkList(collections.MutableSequence):
+class IssueLinkList(MutableSequence):
     """
     IssueLink abstraction
     """
